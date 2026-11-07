@@ -2,7 +2,8 @@ import Std
 import Conc
 import Streams
 import Libp2p.Identity
-import Libp2p.Protocols.Mock.Core
+import Libp2p.Core
+import Multiformats.Multiaddr.Core
 
 /-!
 # Host seam mock
@@ -66,10 +67,10 @@ opaque inMemory : IO Peerstore := do
 structure HostSeam where
   /-- Open and negotiate one stream to the peer, choosing among the
   protocols. -/
-  newStream : PeerId → List Core.ProtocolId →
-    Conc.Async (Except Core.Error (Core.ProtocolId × Streams.Stream))
+  newStream : PeerId → List Libp2p.Core.ProtocolId →
+    Conc.Async (Except Libp2p.Core.Error (Libp2p.Core.ProtocolId × Streams.Stream))
   /-- Register the handler of one protocol id. -/
-  setHandler : Core.StreamHandler → BaseIO Unit
+  setHandler : Libp2p.Core.StreamHandler → BaseIO Unit
 
 /-! ## The in-memory switch
 
@@ -81,7 +82,7 @@ private structure Switch.Entry where
   /-- The peer. -/
   peer : PeerId
   /-- The handlers the peer registered, the oldest first. -/
-  handlers : List Core.StreamHandler
+  handlers : List Libp2p.Core.StreamHandler
   /-- The owner of the handler tasks of the inbound streams of the peer. -/
   tasks : Conc.TaskSet
 
@@ -125,8 +126,8 @@ private def streamOf (incoming outgoing : Conc.Pipe) : Streams.Stream where
 
 /-- The first protocol of the list that the handlers serve, with its
 handler. -/
-private def choose (handlers : List Core.StreamHandler) :
-    List Core.ProtocolId → Option (Core.ProtocolId × Core.StreamHandler)
+private def choose (handlers : List Libp2p.Core.StreamHandler) :
+    List Libp2p.Core.ProtocolId → Option (Libp2p.Core.ProtocolId × Libp2p.Core.StreamHandler)
   | [] => none
   | p :: ps =>
     match handlers.find? (fun h => decide (h.id = p)) with
@@ -135,9 +136,12 @@ private def choose (handlers : List Core.StreamHandler) :
 
 /-- Run one handler on an inbound stream. A handler error fails the task,
 so the `joinAll` of the owner reports it. -/
-private def serve (handler : Core.StreamHandler) (peer : PeerId)
+private def serve (handler : Libp2p.Core.StreamHandler) (peer : PeerId)
     (stream : Streams.Stream) : Conc.Async Unit := do
-  match ← (handler.handle peer stream).run with
+  -- The in-memory switch has no transport address, so the context carries
+  -- the empty multiaddr. The loop reads only the peer.
+  let ctx : Libp2p.Core.StreamContext := { remotePeer := peer, remoteAddr := Multiformats.Multiaddr.empty }
+  match ← (handler.handle ctx stream).run with
   | .ok () => return ()
   | .error e => throw <| IO.userError s!"handler {handler.id.toString}: {repr e}"
 
@@ -145,8 +149,8 @@ private def serve (handler : Core.StreamHandler) (peer : PeerId)
 spawn the handler on the task set of `peer`, and answer the initiator
 stream. The call never parks. Eight chunks is far more than one RPC frame
 needs, and the bound stays explicit. -/
-private def open_ (sw : Switch) (me peer : PeerId) (protocols : List Core.ProtocolId) :
-    BaseIO (Except Core.Error (Core.ProtocolId × Streams.Stream)) := do
+private def open_ (sw : Switch) (me peer : PeerId) (protocols : List Libp2p.Core.ProtocolId) :
+    BaseIO (Except Libp2p.Core.Error (Libp2p.Core.ProtocolId × Streams.Stream)) := do
   let st ← sw.state.get
   let some entry := st.entries.find? (fun e => decide (e.peer = peer))
     | return .error (.protocol s!"no peer {peer}")

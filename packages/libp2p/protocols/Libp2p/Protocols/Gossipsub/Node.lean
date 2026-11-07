@@ -2,7 +2,7 @@ import Conc
 import Streams
 import Bytes
 import Libp2p.Protocols.Constants
-import Libp2p.Protocols.Mock.Core
+import Libp2p.Core
 import Libp2p.Protocols.Mock.Host
 import Libp2p.Protocols.Gossipsub.Core
 
@@ -109,6 +109,13 @@ set_option autoImplicit false
 namespace Libp2p.Protocols.Gossipsub.Node
 
 open Mock.Host (HostSeam)
+
+/-- Map a stream error onto the core error. The core keeps the kind and the
+rendered detail. -/
+def mapStreamError : Streams.Error → Libp2p.Core.Error
+  | .closed => .closed "the stream closed"
+  | .reset => .protocol "the peer reset the stream"
+  | .timeout => .timeout "the stream deadline expired"
 
 /-- A spread a caller may choose for heartbeat gossip. Each delay stays below
 one second. The multiplier is prime, so the delays do not repeat with a short
@@ -236,7 +243,7 @@ for the capacity constructor. Each copySlice writes only the next slice at
 cursor, without retaining an earlier body value. EOF between frames is clean.
 The repeat loop uses constant stack space for any number of chunks or frames. -/
 private def readFrames (events : Conc.Chan Input) (peer : Peer)
-    (stream : Streams.Stream) : Conc.Async (Except Mock.Core.Error Unit) := do
+    (stream : Streams.Stream) : Conc.Async (Except Libp2p.Core.Error Unit) := do
   let mut header := ByteArray.emptyWithCapacity Varint.maxBytes
   let mut body := ByteArray.empty
   let mut expected : Option Nat := none
@@ -255,7 +262,7 @@ private def readFrames (events : Conc.Chan Input) (peer : Peer)
     if pos = chunk.size then
       -- Park: the peer writes, half-closes, or resets.
       match ← stream.read with
-      | .error e => return .error (Mock.Core.mapStreamError e)
+      | .error e => return .error (mapStreamError e)
       | .ok none =>
         return if header.isEmpty && expected.isNone then .ok ()
           else .error (.protocol "the stream ended inside an RPC frame")
@@ -290,9 +297,10 @@ private def readFrames (events : Conc.Chan Input) (peer : Peer)
 /-- Serve every RPC of a peer's stream in arrival order. Frame errors reset
 both directions. A clean EOF closes our write direction. The host owns and
 joins this handler task. -/
-def handler (events : Conc.Chan Input) : Mock.Core.StreamHandler where
+def handler (events : Conc.Chan Input) : Libp2p.Core.StreamHandler where
   id := Constants.meshsubId
-  handle peer stream := ExceptT.mk do
+  handle ctx stream := ExceptT.mk do
+    let peer := ctx.remotePeer
     -- The opener joins before its first RPC. Repeat joins are loop no-ops.
     if let .error _ ← events.send (.event (.peerJoined peer .meshsub)) then
       stream.close
