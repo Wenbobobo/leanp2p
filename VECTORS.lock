@@ -105,8 +105,8 @@ dir = "vendor/nim-libp2p"
 repo = "https://github.com/vacp2p/nim-libp2p"
 commit = "3dce083d1c9900d4d98878faaffe5c872b65ec48"
 branch = "master"
-paths = ["/libp2p/stream/chronosstream.nim", "/libp2p/stream/lpstream.nim", "/libp2p/muxers/yamux/yamux.nim", "/tests/libp2p/test_peer_id.nim", "/LICENSE*"]
-used-for = "chronosstream.nim and lpstream.nim: a TCP read error as EOF, and the remote reset as a kind of EOF (net/streams, the peer's reset); yamux.nim: the reset that clears the unread bytes (net/yamux); test_peer_id.nim: the peer id texts of peerid-text-nim.json (libp2p/identity)"
+paths = ["/libp2p/stream/chronosstream.nim", "/libp2p/stream/lpstream.nim", "/libp2p/muxers/yamux/yamux.nim", "/libp2p/protocols/secure/noise.nim", "/tests/libp2p/test_peer_id.nim", "/LICENSE*"]
+used-for = "chronosstream.nim and lpstream.nim: a TCP read error as EOF, and the remote reset as a kind of EOF (net/streams, the peer's reset); yamux.nim: the reset that clears the unread bytes (net/yamux); noise.nim: the static key set before message 0, the dropped payload of message 0, the payload decode, the reads on demand, and the joined frames of one write (libp2p/security); test_peer_id.nim: the peer id texts of peerid-text-nim.json (libp2p/identity)"
 
 [[vendor]]
 dir = "vendor/rust-yamux"
@@ -121,8 +121,16 @@ dir = "vendor/js-libp2p"
 repo = "https://github.com/libp2p/js-libp2p"
 commit = "fab409544d968c90184f515c842755a0e819a372"
 branch = "main"
-paths = ["/packages/stream-multiplexer-yamux/src/stream.ts", "/LICENSE*"]
-used-for = "the yamux stream's data after the peer's FIN (net/yamux)"
+paths = ["/packages/stream-multiplexer-yamux/src/stream.ts", "/packages/connection-encrypter-noise/src/performHandshake.ts", "/packages/connection-encrypter-noise/src/utils.ts", "/LICENSE*"]
+used-for = "stream.ts: the yamux stream's data after the peer's FIN (net/yamux); performHandshake.ts and utils.ts: the payload check below the Noise state, its order before message 3, the dropped payload of message 0, and the payload decode (libp2p/security)"
+
+[[vendor]]
+dir = "vendor/rust-libp2p"
+repo = "https://github.com/libp2p/rust-libp2p"
+commit = "c449090f49b5ae2338e8f0727be98e0a739ba135"
+branch = "master"
+paths = ["/transports/noise/src/io.rs", "/transports/noise/src/io/handshake.rs", "/transports/noise/src/io/framed.rs", "/LICENSE*"]
+used-for = "io.rs: the one decrypted frame held ahead of the reader; io/handshake.rs: the read buffer that the handshake hands to the transport, and the refused payload of message 0; io/framed.rs: the payload decode with no limit below the frame (libp2p/security)"
 
 [[vendor]]
 dir = "vendor/lean4"
@@ -139,3 +147,51 @@ commit = "96a179180f0ad6bba9b1e7b6e38d0affb0168e9a"
 branch = "master"
 paths = ["/internal/impl/decode.go", "/LICENSE"]
 used-for = "v1.36.11, the protobuf runtime of go-libp2p v0.50.0: the decoder keeps unknown fields (libp2p/identity, the Keys message)"
+
+[[vendor]]
+dir = "vendor/eips"
+repo = "https://github.com/ethereum/EIPs"
+commit = "dc5d5fa688b7fe87b95a907fcc128b4fde2f4d2f"
+branch = "master"
+paths = ["/EIPS/eip-778.md", "/LICENSE.md"]
+used-for = "EIP-778: the node record format, the v4 identity scheme, and the example record (W6.1)"
+
+[[vendor]]
+dir = "vendor/ethereum-tests"
+repo = "https://github.com/ethereum/tests"
+commit = "c67e485ff8b5be9abc8ad15345ec21aa22e290d9"
+branch = "develop"
+paths = ["/RLPTests/rlptest.json", "/RLPTests/invalidRLPTest.json", "/LICENSE"]
+used-for = "RLPTests: the valid and invalid RLP vectors, the acceptance suite of the identity RLP codec (W6.1)"
+
+[[vendor]]
+dir = "vendor/go-ethereum"
+repo = "https://github.com/ethereum/go-ethereum"
+commit = "0d061403cf53263b95f9beec48f07046e78e1bed"
+branch = "master"
+paths = ["/p2p/enode/idscheme.go", "/p2p/enode/node.go", "/crypto/signature_cgo.go", "/crypto/signature_nocgo.go", "/crypto/secp256k1/libsecp256k1/include/secp256k1.h", "/COPYING.LESSER"]
+used-for = "the v4 identity scheme's signer and verifier and its high-S refusal, in both builds (W6.1, identity contract 5); the enr: text form, Parse and String (W6.1, identity contract 7)"
+
+[[vendor]]
+dir = "vendor/sigp-enr"
+repo = "https://github.com/sigp/enr"
+commit = "5d0421a6af06d69e89fc7e09257240436516db8d"
+branch = "master"
+paths = ["/src/lib.rs", "/src/keys/k256_key.rs", "/src/keys/rust_secp256k1.rs", "/Cargo.toml", "/LICENSE"]
+used-for = "v0.14.0, the Rust ENR crate: its v4 verifiers over k256 and over libsecp256k1 (W6.1, identity contract 5); the enr: text form and its padding and trailing-bits rejections (W6.1, identity contract 7)"
+
+[[vendor]]
+dir = "vendor/rustcrypto-elliptic-curves"
+repo = "https://github.com/RustCrypto/elliptic-curves"
+commit = "c63dddfbacea826c685c92ef87bf407e7f5c23c3"
+branch = "master"
+paths = ["/k256/src/ecdsa.rs", "/k256/Cargo.toml", "/k256/LICENSE-MIT", "/k256/LICENSE-APACHE"]
+used-for = "k256 v0.14.0, the curve of sigp/enr: NORMALIZE_S is true for secp256k1 (W6.1, identity contract 5)"
+
+[[vendor]]
+dir = "vendor/rustcrypto-signatures"
+repo = "https://github.com/RustCrypto/signatures"
+commit = "25e6bf946725ace2af69b15874c29131acc7db60"
+branch = "master"
+paths = ["/ecdsa/src/hazmat.rs", "/ecdsa/Cargo.toml", "/ecdsa/LICENSE-MIT", "/ecdsa/LICENSE-APACHE"]
+used-for = "ecdsa v0.17.0, the k256 verifier core: a high S fails when NORMALIZE_S is set (W6.1, identity contract 5)"
